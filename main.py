@@ -39,11 +39,9 @@ def main():
             processes.append(Process(args[0], int(args[1]), int(args[2]), int(args[3]), int(args[4])))
 
     # Run algorithms
-<<<<<<< HEAD
     # fcfs(processes)
     # sjf(processes)
-    print
-    rr(processes)
+    # rr(processes)
 
 
 def rr(processes):
@@ -149,11 +147,6 @@ def rr(processes):
         running_time -= 1
         current_slice -= 1
         cs_end -= 1
-=======
-    #fcfs(processes)
-    sjf(processes)
-    #rr(processes)
->>>>>>> 9d6715c92af4b653bcff7430335cb3fac6844c62
 
 def sjf(processes):
 
