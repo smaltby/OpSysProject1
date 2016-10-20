@@ -39,12 +39,14 @@ def main():
             processes.append(Process(args[0], int(args[1]), int(args[2]), int(args[3]), int(args[4])))
 
     # Run algorithms
-    # fcfs(processes)
-    # sjf(processes)
-    # rr(processes)
+    algorithm(processes, "FCFS")
+    print
+    algorithm(processes, "SJF")
+    print
+    algorithm(processes, "RR")
 
 
-def rr(processes):
+def algorithm(processes, name):
     global t
 
     ready_q = deque()
@@ -52,8 +54,12 @@ def rr(processes):
     running_time = 0
     blocked = {}
 
+    rem_num_bursts = {}
+    for process in processes:
+        rem_num_bursts[process] = process.num_bursts
+
+    rem_t_burst = {}
     current_slice = 0
-    rem_burst = {}
 
     cs_begin = 0
     cs_end = 0
@@ -68,7 +74,7 @@ def rr(processes):
 
     # Loop 1 ms at a time
     t = 0
-    print "time %dms: Simulator started for RR [Q %s]" % (t, queue_print(ready_q))
+    print "time %dms: Simulator started for %s [Q %s]" % (t, name, queue_print(ready_q))
     while 1:
         # Check for new arrivals and processes finishing I/O
         if t in arrival_times:
@@ -85,24 +91,24 @@ def rr(processes):
         if cs_begin > 0:  # Currently context switching to new process
             cs_begin -= 1
             if cs_begin == 0:  # Context switch complete, begin burst
-                if running in rem_burst:
-                    running_time = rem_burst[running]
+                if running in rem_t_burst:
+                    running_time = rem_t_burst[running]
                 else:
                     running_time = running.t_burst
                 current_slice = t_slice
                 print "time %dms: Process %s started using the CPU [Q %s]" % (t, running.id, queue_print(ready_q))
-        elif running_time <= 0 or current_slice <= 0:  # Currently running burst OR waiting
+        elif running_time <= 0 or (current_slice <= 0 and name == "RR"):  # Currently running burst OR waiting
             if running is not None:
                 # Burst completed, if there are any remaining, block it on I/O, otherwise terminate
                 if running_time <= 0:
-                    running.num_bursts -= 1
-                    if running in rem_burst:
-                        del rem_burst[running]
+                    rem_num_bursts[running] -= 1
+                    if running in rem_t_burst:
+                        del rem_t_burst[running]
 
                     # Block if bursts remain, terminate otherwise
-                    if running.num_bursts > 0:
+                    if rem_num_bursts[running] > 0:
                         print "time %dms: Process %s completed a CPU burst; %d to go [Q %s]" \
-                              % (t, running.id, running.num_bursts, queue_print(ready_q))
+                              % (t, running.id, rem_num_bursts[running], queue_print(ready_q))
 
                         # Block the process on I/O
                         blocked_until = t + running.t_io
@@ -123,7 +129,7 @@ def rr(processes):
                     current_slice = t_slice
                     continue
                 else:
-                    rem_burst[running] = running_time
+                    rem_t_burst[running] = running_time
                     ready_q.append(running)
                     print "time %dms: Time slice expired; process %s preempted with %dms to go [Q %s]" \
                           % (t, running.id, running_time, queue_print(ready_q))
@@ -134,185 +140,25 @@ def rr(processes):
             # If nothing is running and ready_q has an available process and not context switching,
             # context switch to new process
             if running is None and len(ready_q) > 0 and cs_end <= 0:
-                running = ready_q.popleft()
+                if name == "SJF":
+                    # get the process w/ the shortest time left
+                    for process in ready_q:
+                        if running is None or process.t_burst < running.t_burst:
+                            running = process
+                    ready_q.remove(running)
+                else:
+                    running = ready_q.popleft()
                 cs_begin = t_cs / 2
 
             # If nothing running and nothing on any upcoming queue and not context switching, end simulator
             if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
-                print "time %dms: Simulator ended for RR" % (t,)
+                print "time %dms: Simulator ended for %s" % (t, name)
                 break
 
         # Increment time, decrement running time and context switch
         t += 1
         running_time -= 1
         current_slice -= 1
-        cs_end -= 1
-
-def sjf(processes):
-
-    global t
-
-    ready_q = deque()
-    running = None
-    running_time = 0
-    blocked = {}    
-
-    cs_begin = 0
-    cs_end = 0
-
-    arrival_times = {}
-    for process in processes:
-        if process.t_arrival not in arrival_times:
-            arrival_times[process.t_arrival] = [process]
-        else:
-            arrival_times[process.t_arrival].append(process)
-
-    t=0
-    print "time %dms: Simulator started for SJF [Q %s]" % (t, queue_print(ready_q))
-
-    while 1:
-        # Check for new arrivals and processes finishing I/O
-        if t in arrival_times:
-            for process in arrival_times[t]:
-                ready_q.append(process)
-                print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
-            del arrival_times[t]
-        if t in blocked:
-            for process in blocked[t]:
-                ready_q.append(process)
-                print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
-            del blocked[t]
-
-
-        if cs_begin > 0:    # Currently context switching to new process
-            cs_begin -= 1
-            if cs_begin == 0:   # Context switch complete, begin burst
-                running_time = running.t_burst
-                print "time %dms: Process %s started using the CPU [Q %s]" % (t, running.id, queue_print(ready_q))
-        elif running_time <= 0:     # Currently running burst OR waiting
-            if running is not None:
-                # Burst completed, if there are any remaining, block it on I/O, otherwise terminate
-                running.num_bursts -= 1
-                if running.num_bursts > 0:
-                    print "time %dms: Process %s completed a CPU burst; %d to go [Q %s]"\
-                          % (t, running.id, running.num_bursts, queue_print(ready_q))
-
-                    # Block the process on I/O
-                    blocked_until = t + running.t_io
-                    if blocked_until not in blocked:
-                        blocked[blocked_until] = [running]
-                    else:
-                        blocked[blocked_until].append(running)
-
-                    print "time %dms: Process %s blocked on I/O until time %dms [Q %s]" \
-                          % (t, running.id, blocked_until, queue_print(ready_q))
-                else:
-                    print "time %dms: Process %s terminated [Q %s]" % (t, running.id, queue_print(ready_q))
-
-                cs_end = t_cs / 2
-                running = None
-
-
-        # If nothing is running and ready_q has an available process and not context switching,
-            # context switch to new process
-        if running is None and len(ready_q) > 0 and cs_end <= 0:
-            #get the process w/ the shortest time left
-            for process in ready_q:
-                # time remaining = t_burst*num_bursts
-                if running == None or process.t_burst < running.t_burst:
-                    running = process
-            ready_q.remove(running)
-            cs_begin = t_cs / 2
-
-            # If nothing running and nothing on any upcoming queue and not context swiching, end simulator
-        if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
-                print "time %dms: Simulator ended for SJF" % (t,)
-                break
-
-        # Increment time, decrement running time and context switch
-        t += 1
-        running_time -= 1
-        cs_end -= 1
-
-
-def fcfs(processes):
-    global t
-
-    ready_q = deque()
-    running = None
-    running_time = 0
-    blocked = {}
-
-    cs_begin = 0
-    cs_end = 0
-
-    # Map processes to their arrival times for ez lookup
-    arrival_times = {}
-    for process in processes:
-        if process.t_arrival not in arrival_times:
-            arrival_times[process.t_arrival] = [process]
-        else:
-            arrival_times[process.t_arrival].append(process)
-
-    # Loop 1 ms at a time
-    t = 0
-    print "time %dms: Simulator started for FCFS [Q %s]" % (t, queue_print(ready_q))
-    while 1:
-        # Check for new arrivals and processes finishing I/O
-        if t in arrival_times:
-            for process in arrival_times[t]:
-                ready_q.append(process)
-                print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
-            del arrival_times[t]
-        if t in blocked:
-            for process in blocked[t]:
-                ready_q.append(process)
-                print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
-            del blocked[t]
-
-        if cs_begin > 0:    # Currently context switching to new process
-            cs_begin -= 1
-            if cs_begin == 0:   # Context switch complete, begin burst
-                running_time = running.t_burst
-                print "time %dms: Process %s started using the CPU [Q %s]" % (t, running.id, queue_print(ready_q))
-        elif running_time <= 0:     # Currently running burst OR waiting
-            if running is not None:
-                # Burst completed, if there are any remaining, block it on I/O, otherwise terminate
-                running.num_bursts -= 1
-                if running.num_bursts > 0:
-                    print "time %dms: Process %s completed a CPU burst; %d to go [Q %s]"\
-                          % (t, running.id, running.num_bursts, queue_print(ready_q))
-
-                    # Block the process on I/O
-                    blocked_until = t + running.t_io
-                    if blocked_until not in blocked:
-                        blocked[blocked_until] = [running]
-                    else:
-                        blocked[blocked_until].append(running)
-
-                    print "time %dms: Process %s blocked on I/O until time %dms [Q %s]" \
-                          % (t, running.id, blocked_until, queue_print(ready_q))
-                else:
-                    print "time %dms: Process %s terminated [Q %s]" % (t, running.id, queue_print(ready_q))
-
-                cs_end = t_cs / 2
-                running = None
-
-            # If nothing is running and ready_q has an available process and not context switching,
-            # context switch to new process
-            if running is None and len(ready_q) > 0 and cs_end <= 0:
-                running = ready_q.popleft()
-                cs_begin = t_cs / 2
-
-            # If nothing running and nothing on any upcoming queue and not context swiching, end simulator
-            if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
-                print "time %dms: Simulator ended for FCFS" % (t,)
-                sys.stdout.flush()
-                break
-
-        # Increment time, decrement running time and context switch
-        t += 1
-        running_time -= 1
         cs_end -= 1
 
 
