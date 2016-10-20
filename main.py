@@ -39,9 +39,9 @@ def main():
             processes.append(Process(args[0], int(args[1]), int(args[2]), int(args[3]), int(args[4])))
 
     # Run algorithms
-    # fcfs(processes)
-    # sjf(processes)
-    # rr(processes)
+    fcfs(processes, output_f)
+    #sjf(processes)
+    #rr(processes)
 
 
 def rr(processes):
@@ -74,11 +74,13 @@ def rr(processes):
         if t in arrival_times:
             for process in arrival_times[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
         if t in blocked:
             for process in blocked[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
             del blocked[t]
 
@@ -175,11 +177,13 @@ def sjf(processes):
         if t in arrival_times:
             for process in arrival_times[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
         if t in blocked:
             for process in blocked[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
             del blocked[t]
 
@@ -193,6 +197,7 @@ def sjf(processes):
             if running is not None:
                 # Burst completed, if there are any remaining, block it on I/O, otherwise terminate
                 running.num_bursts -= 1
+                print "xxxxxxxxx running.num_bursts: %d" % (running.num_bursts)
                 if running.num_bursts > 0:
                     print "time %dms: Process %s completed a CPU burst; %d to go [Q %s]"\
                           % (t, running.id, running.num_bursts, queue_print(ready_q))
@@ -235,7 +240,7 @@ def sjf(processes):
         cs_end -= 1
 
 
-def fcfs(processes):
+def fcfs(processes, output_f):
     global t
 
     ready_q = deque()
@@ -246,6 +251,12 @@ def fcfs(processes):
     cs_begin = 0
     cs_end = 0
 
+    stats_procs = {}
+    stats_total_burst_time = 0
+    stats_total_bursts = 0
+    stats_total_cs = 0
+    stats_total_preemptions = 0
+
     # Map processes to their arrival times for ez lookup
     arrival_times = {}
     for process in processes:
@@ -253,6 +264,13 @@ def fcfs(processes):
             arrival_times[process.t_arrival] = [process]
         else:
             arrival_times[process.t_arrival].append(process)
+        stats_procs[process.id] = {
+                           "total_wait_time" : 0,
+                           "total_turnaround_time" : 0,
+                           "t_entered_q" : None
+                          }
+        stats_total_burst_time += (process.num_bursts * process.t_burst)
+        stats_total_bursts += process.num_bursts
 
     # Loop 1 ms at a time
     t = 0
@@ -262,11 +280,13 @@ def fcfs(processes):
         if t in arrival_times:
             for process in arrival_times[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
         if t in blocked:
             for process in blocked[t]:
                 ready_q.append(process)
+                stats_procs[process.id]["t_entered_q"] = t
                 print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
             del blocked[t]
 
@@ -279,6 +299,7 @@ def fcfs(processes):
             if running is not None:
                 # Burst completed, if there are any remaining, block it on I/O, otherwise terminate
                 running.num_bursts -= 1
+                stats_procs[running.id]["total_turnaround_time"] += (t - stats_procs[running.id]["t_entered_q"])
                 if running.num_bursts > 0:
                     print "time %dms: Process %s completed a CPU burst; %d to go [Q %s]"\
                           % (t, running.id, running.num_bursts, queue_print(ready_q))
@@ -302,7 +323,9 @@ def fcfs(processes):
             # context switch to new process
             if running is None and len(ready_q) > 0 and cs_end <= 0:
                 running = ready_q.popleft()
+                stats_procs[running.id]["total_wait_time"] += (t - stats_procs[running.id]["t_entered_q"])
                 cs_begin = t_cs / 2
+                stats_total_cs += 1
 
             # If nothing running and nothing on any upcoming queue and not context swiching, end simulator
             if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
@@ -315,6 +338,8 @@ def fcfs(processes):
         running_time -= 1
         cs_end -= 1
 
+    stats_print(output_f, "FCFS", stats_procs, stats_total_burst_time, stats_total_bursts, stats_total_cs, stats_total_preemptions)
+
 
 def queue_print(ready_q):
     if len(ready_q) == 0:
@@ -324,6 +349,21 @@ def queue_print(ready_q):
     for process in ready_q:
         queue_string += process.id + ' '
     return queue_string[:-1]
+
+def stats_print(output_f, algorithm, stats_procs, stats_total_burst_time, stats_total_bursts, stats_total_cs, stats_total_preemptions):
+    total_wait_time = 0
+    total_turnaround_time = 0
+
+    for key in stats_procs:
+        total_wait_time += stats_procs[key]["total_wait_time"]
+        total_turnaround_time += stats_procs[key]["total_turnaround_time"]
+
+    print >> output_f, "Algorithm %s" % (algorithm)
+    print >> output_f, "-- average CPU burst time: %.2f ms" % (float(stats_total_burst_time) / stats_total_bursts)
+    print >> output_f, "-- average wait time: %.2f ms" % (float(total_wait_time) / stats_total_bursts)
+    print >> output_f, "-- average turnaround time: %.2f ms" % (float(total_turnaround_time) / stats_total_bursts)
+    print >> output_f, "-- total number of context switches: %d" % (stats_total_cs)
+    print >> output_f, "-- total number of preemptions: %d" % (stats_total_preemptions)
 
 if __name__ == "__main__":
     main()
