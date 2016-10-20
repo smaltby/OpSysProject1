@@ -111,7 +111,7 @@ def rr(processes):
                         else:
                             blocked[blocked_until].append(running)
 
-                        print "time %dms: Process %s blocked on I/O  until time %dms [Q %s]" \
+                        print "time %dms: Process %s blocked on I/O until time %dms [Q %s]" \
                               % (t, running.id, blocked_until, queue_print(ready_q))
                     else:
                         print "time %dms: Process %s terminated [Q %s]" % (t, running.id, queue_print(ready_q))
@@ -204,7 +204,7 @@ def sjf(processes):
                     else:
                         blocked[blocked_until].append(running)
 
-                    print "time %dms: Process %s blocked on I/O  until time %dm/s [Q %s]" \
+                    print "time %dms: Process %s blocked on I/O until time %dms [Q %s]" \
                           % (t, running.id, blocked_until, queue_print(ready_q))
                 else:
                     print "time %dms: Process %s terminated [Q %s]" % (t, running.id, queue_print(ready_q))
@@ -290,7 +290,7 @@ def fcfs(processes):
                     else:
                         blocked[blocked_until].append(running)
 
-                    print "time %dms: Process %s blocked on I/O  until time %dms [Q %s]" \
+                    print "time %dms: Process %s blocked on I/O until time %dms [Q %s]" \
                           % (t, running.id, blocked_until, queue_print(ready_q))
                 else:
                     print "time %dms: Process %s terminated [Q %s]" % (t, running.id, queue_print(ready_q))
