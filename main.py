@@ -93,7 +93,7 @@ def algorithm(processes, name, output_f):
     t = 0
     print "time %dms: Simulator started for %s [Q %s]" % (t, name, queue_print(ready_q))
     while 1:
-        # Check for new arrivals and processes finishing I/O
+        # Check for new arrivals
         if t in arrival_times:
             for process in arrival_times[t]:
                 ready_q.append(process)
@@ -103,15 +103,6 @@ def algorithm(processes, name, output_f):
                 stats_procs[process.id]["wait_time_entered_q"] = t
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
-        if t in blocked:
-            for process in blocked[t]:
-                ready_q.append(process)
-                if name == "SJF":
-                    ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
-                stats_procs[process.id]["turnaround_entered_q"] = t
-                stats_procs[process.id]["wait_time_entered_q"] = t
-                print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
-            del blocked[t]
 
         if cs_begin > 0:  # Currently context switching to new process
             cs_begin -= 1
@@ -167,26 +158,37 @@ def algorithm(processes, name, output_f):
                 cs_end = t_cs / 2
                 running = None
 
-            # If nothing is running and ready_q has an available process and not context switching,
-            # context switch to new process
-            if running is None and len(ready_q) > 0 and cs_end <= 0:
+        # Check for processes finishing I/O
+        if t in blocked:
+            for process in blocked[t]:
+                ready_q.append(process)
                 if name == "SJF":
-                    # get the process w/ the shortest time left
-                    for process in ready_q:
-                        if running is None or process.t_burst < running.t_burst:
-                            running = process
-                    ready_q.remove(running)
-                    stats_procs[running.id]["total_wait_time"] += (t - stats_procs[running.id]["wait_time_entered_q"])
-                else:
-                    running = ready_q.popleft()
-                    stats_procs[running.id]["total_wait_time"] += (t - stats_procs[running.id]["wait_time_entered_q"])
-                cs_begin = t_cs / 2
-                stats_total_cs += 1
+                    ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
+                stats_procs[process.id]["turnaround_entered_q"] = t
+                stats_procs[process.id]["wait_time_entered_q"] = t
+                print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
+            del blocked[t]
 
-            # If nothing running and nothing on any upcoming queue and not context switching, end simulator
-            if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
-                print "time %dms: Simulator ended for %s" % (t, name)
-                break
+        # If nothing is running and ready_q has an available process and not context switching,
+        # context switch to new process
+        if running is None and len(ready_q) > 0 and cs_end <= 0:
+            if name == "SJF":
+                # get the process w/ the shortest time left
+                for process in ready_q:
+                    if running is None or process.t_burst < running.t_burst:
+                        running = process
+                ready_q.remove(running)
+                stats_procs[running.id]["total_wait_time"] += (t - stats_procs[running.id]["wait_time_entered_q"])
+            else:
+                running = ready_q.popleft()
+                stats_procs[running.id]["total_wait_time"] += (t - stats_procs[running.id]["wait_time_entered_q"])
+            cs_begin = t_cs / 2
+            stats_total_cs += 1
+
+        # If nothing running and nothing on any upcoming queue and not context switching, end simulator
+        if running is None and len(ready_q) == len(blocked) == len(arrival_times) == 0 and cs_end <= 0:
+            print "time %dms: Simulator ended for %s" % (t, name)
+            break
 
         # Increment time, decrement running time and context switch
         t += 1
