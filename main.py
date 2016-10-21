@@ -96,7 +96,7 @@ def algorithm(processes, name, output_f):
                 ready_q.append(process)
                 stats_procs[process.id]["turnaround_entered_q"] = t
                 stats_procs[process.id]["wait_time_entered_q"] = t
-                sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst))
+                ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
         if t in blocked:
