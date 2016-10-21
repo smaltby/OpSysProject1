@@ -1,3 +1,6 @@
+# Operating Systems Project 1
+# Sean Maltby, Solomon Mori, Thomas Wagner
+
 import sys
 from collections import deque
 
@@ -64,7 +67,7 @@ def algorithm(processes, name, output_f):
     cs_begin = 0
     cs_end = 0
 
-    stats_procs = {}
+    stats_procs = {} # Stores wait time, turnaround time, and time at which process last entered the ready queue
     stats_total_burst_time = 0
     stats_total_bursts = 0
     stats_total_cs = 0
@@ -94,14 +97,17 @@ def algorithm(processes, name, output_f):
         if t in arrival_times:
             for process in arrival_times[t]:
                 ready_q.append(process)
+                if name == "SJF":
+                    ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
                 stats_procs[process.id]["turnaround_entered_q"] = t
                 stats_procs[process.id]["wait_time_entered_q"] = t
-                ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
                 print "time %dms: Process %s arrived [Q %s]" % (t, process.id, queue_print(ready_q))
             del arrival_times[t]
         if t in blocked:
             for process in blocked[t]:
                 ready_q.append(process)
+                if name == "SJF":
+                    ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
                 stats_procs[process.id]["turnaround_entered_q"] = t
                 stats_procs[process.id]["wait_time_entered_q"] = t
                 print "time %dms: Process %s completed I/O [Q %s]" % (t, process.id, queue_print(ready_q))
@@ -151,6 +157,8 @@ def algorithm(processes, name, output_f):
                 else:
                     rem_t_burst[running] = running_time
                     ready_q.append(running)
+                    if name == "SJF":
+                        ready_q = deque(sorted( ready_q,cmp=lambda x,y: cmp(x.t_burst, y.t_burst)))
                     stats_procs[running.id]["wait_time_entered_q"] = t
                     stats_total_preemptions += 1
                     print "time %dms: Time slice expired; process %s preempted with %dms to go [Q %s]" \
